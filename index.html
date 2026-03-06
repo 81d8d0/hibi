@@ -164,7 +164,8 @@
             const percentage = (dayOfYear / totalDays) * 100;
             
             const daysLeft = totalDays - dayOfYear;
-            const weeksLeft = Math.floor(daysLeft / 7);
+            const totalWeeksInYear = getWeekNumber(new Date(year, 11, 28));
+            const weeksLeft = totalWeeksInYear - weekOfYear;
             
             const springDay = Math.floor((new Date(year, 3, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
             const summerDay = Math.floor((new Date(year, 6, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
