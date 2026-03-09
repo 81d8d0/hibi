@@ -159,15 +159,24 @@
             const endOfYear = new Date(year + 1, 0, 1);
             const totalDays = Math.floor((endOfYear - startOfYear) / (1000 * 60 * 60 * 24));
             
-            const weekOfYear = getWeekNumber(now);
+            const { weekNo: weekOfYear, isoYear } = getISOData(now);
             
             const percentage = (dayOfYear / totalDays) * 100;
             
             const daysLeft = totalDays - dayOfYear;
-            const totalWeeksInYear = getWeekNumber(new Date(year, 11, 28));
-            let weeksLeft = totalWeeksInYear - weekOfYear;
-            if (weeksLeft < 0) {
+
+            const { weekNo: totalWeeksInYear } = getISOData(new Date(year, 11, 28));
+
+            let weeksLeft;
+            if (isoYear < year) {
+                // 情況：如 2040-01-01，ISO 年份是 2039，代表剛開年
                 weeksLeft = totalWeeksInYear;
+            } else if (isoYear > year) {
+                // 情況：年末幾天已經算進明年的第一週
+                weeksLeft = 0;
+            } else {
+                // 正常年份內計算
+                weeksLeft = totalWeeksInYear - weekOfYear;
             }
             
             const springDay = Math.floor((new Date(year, 3, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
@@ -184,12 +193,14 @@
             };
         }
 
-        function getWeekNumber(date) {
+        function getISOData(date) {
             const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
             const dayNum = d.getUTCDay() || 7;
             d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            const isoYear = d.getUTCFullYear(); // 取得 ISO 週所屬年份
+            const yearStart = new Date(Date.UTC(isoYear, 0, 1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            return { weekNo, isoYear };
         }
 
         function drawSeasonMarkers(data) {
