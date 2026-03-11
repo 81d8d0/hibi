@@ -245,6 +245,48 @@
             drawSeasonMarkers(data);
         }
 
+        // 實作 iOS PWA 自訂下拉更新邏輯
+        let touchStartY = 0;
+        let preventPullToRefresh = false;
+
+        document.addEventListener('touchstart', (e) => {
+            // 只有在畫面最頂端時才記錄起始位置
+            if (window.scrollY === 0) {
+                touchStartY = e.touches[0].clientY;
+                preventPullToRefresh = false;
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            // 確保只在最頂端往下拉時觸發
+            if (window.scrollY === 0 && touchStartY > 0) {
+                let touchCurrentY = e.touches[0].clientY;
+                if (touchCurrentY > touchStartY) {
+                    // 可在此處加入下拉時的 UI 提示 (例如顯示 "放開以更新")
+                }
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            if (window.scrollY === 0 && touchStartY > 0 && !preventPullToRefresh) {
+                let touchEndY = e.changedTouches[0].clientY;
+                // 如果向下拉動超過 100px，就觸發重新整理
+                if (touchEndY - touchStartY > 100) {
+                    // 嘗試更新 Service Worker 並重新載入頁面
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.ready.then(registration => {
+                            registration.update().then(() => {
+                                window.location.reload();
+                            });
+                        });
+                    } else {
+                        window.location.reload();
+                    }
+                }
+            }
+            touchStartY = 0; // 重置
+        });
+
         window.onload = function() {
             updateInfo();
         };

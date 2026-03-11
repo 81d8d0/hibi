@@ -1,6 +1,6 @@
-// ▼▼▼ 1. 這裡就是版本號，每次更新網頁內容時，請修改這裡 (例如 v1 -> v2) ▼▼▼
-const CACHE_NAME = 'Hibi-v2'; 
-// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+// ▼▼▼ 每次更新網頁內容時，請修改這裡的版本號 ▼▼▼
+const CACHE_NAME = 'Hibi-v3'; // 建議改成 v3 來觸發這次的更新
+// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
 const ASSETS = [
     './index.html',
@@ -14,7 +14,7 @@ self.addEventListener('install', (e) => {
     e.waitUntil(
         caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
     );
-    self.skipWaiting();
+    self.skipWaiting(); // 強制新的 SW 立即接管
 });
 
 // 啟動時接管控制權 (並刪除舊的快取)
@@ -32,11 +32,23 @@ self.addEventListener('activate', (e) => {
     );
 });
 
-// 攔截請求
+// 攔截請求：改用「網路優先 (Network First)」策略
 self.addEventListener('fetch', (e) => {
     e.respondWith(
-        caches.match(e.request).then((response) => {
-            return response || fetch(e.request);
-        })
+        fetch(e.request)
+            .then((response) => {
+                // 網路連線成功，就把最新抓到的檔案更新到快取裡
+                if (response && response.status === 200 && response.type === 'basic') {
+                    const responseToCache = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(e.request, responseToCache);
+                    });
+                }
+                return response;
+            })
+            .catch(() => {
+                // 網路斷線（離線狀態），退回使用快取檔案
+                return caches.match(e.request);
+            })
     );
 });
