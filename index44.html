@@ -275,6 +275,66 @@
             drawSeasonMarkers(data);
         }
 
+        // ==========================================
+        //  自動更新機制 (解決 iOS PWA 凍結問題)
+        // ==========================================
+
+        // 1. 當 App 從背景回到前景時，自動執行更新
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                // A. 立即重新計算並更新畫面上的日期與進度條
+                updateInfo(); 
+
+                // B. 在背景默默檢查有沒有新版本的 Service Worker (新程式碼)
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(registration => {
+                        registration.update(); // 觸發檢查更新
+                    });
+                }
+            }
+        });
+
+        // 2. 當發現新版本，且新的 Service Worker 接管時，自動重新載入網頁
+        let refreshing = false;
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                    refreshing = true;
+                    window.location.reload(); // 自動重整畫面套用新版本
+                }
+            });
+        }
+
+        // ==========================================
+        //  自動更新機制 (解決 iOS PWA 凍結問題)
+        // ==========================================
+
+        // 1. 當 App 從背景回到前景時，自動執行更新
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                // A. 立即重新計算並更新畫面上的日期與進度條
+                updateInfo(); 
+
+                // B. 在背景默默檢查有沒有新版本的 Service Worker (新程式碼)
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(registration => {
+                        registration.update(); // 觸發檢查更新
+                    });
+                }
+            }
+        });
+
+        // 2. 當發現新版本，且新的 Service Worker 接管時，自動重新載入網頁
+        let refreshing = false;
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                    refreshing = true;
+                    window.location.reload(); // 自動重整畫面套用新版本
+                }
+            });
+        }
+
         window.onload = function() {
             updateInfo();
         };
