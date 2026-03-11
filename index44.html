@@ -125,7 +125,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🗓️ 日々</h1>
+        <h1 onclick="forceUpdate()" style="cursor: pointer; user-select: none;">🗓️ 日々</h1>
         
         <div class="info-box">
             <div class="info-text" id="infoText"></div>
@@ -273,6 +273,26 @@
             document.getElementById('percentageDisplay').textContent = data.percentage + '%';
             
             drawSeasonMarkers(data);
+        }
+
+        function forceUpdate() {
+            // 讓標題閃爍一下，給使用者回饋
+            const title = document.querySelector('h1');
+            title.style.opacity = '0.5';
+            setTimeout(() => title.style.opacity = '1', 200);
+
+            // 強制更新 Service Worker 並重整
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(registration => {
+                    registration.update().then(() => {
+                        window.location.reload(true);
+                    }).catch(() => {
+                        window.location.reload(true);
+                    });
+                });
+            } else {
+                window.location.reload(true);
+            }
         }
 
         window.onload = function() {
