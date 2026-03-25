@@ -90,17 +90,6 @@
             position: relative;
         }
 
-        .season-marker {
-            position: absolute;
-            top: -25px;
-            transform: translateX(-50%);
-            font-size: 12px;
-            font-weight: bold;
-            padding: 4px 10px;
-            border-radius: 5px;
-            white-space: nowrap;
-        }
-
         .season-line {
             position: absolute;
             top: 0;
@@ -109,9 +98,9 @@
             opacity: 0.7;
         }
 
-        .spring { background: #66BB6A; color: white; }
-        .summer { background: #FF5252; color: white; }
-        .autumn { background: #FF9800; color: white; }
+        .spring { background: #66BB6A; }
+        .summer { background: #FF5252; }
+        .autumn { background: #FF9800; }
 
         .percentage-display {
             text-align: center;
@@ -205,26 +194,19 @@
 
         function drawSeasonMarkers(data) {
             const wrapper = document.getElementById('progressWrapper');
-            const oldMarkers = wrapper.querySelectorAll('.season-marker, .season-line');
-            oldMarkers.forEach(marker => marker.remove());
+            const oldLines = wrapper.querySelectorAll('.season-line');
+            oldLines.forEach(line => line.remove());
             
             const seasons = [
-                { percent: data.springPercent, label: '🌸 春', class: 'spring' },
-                { percent: data.summerPercent, label: '☀️ 夏', class: 'summer' },
-                { percent: data.autumnPercent, label: '🍂 秋', class: 'autumn' }
+                { percent: data.springPercent, class: 'spring' },
+                { percent: data.summerPercent, class: 'summer' },
+                { percent: data.autumnPercent, class: 'autumn' }
             ];
             
             seasons.forEach(season => {
-                const marker = document.createElement('div');
-                marker.className = `season-marker ${season.class}`;
-                marker.textContent = season.label;
-                marker.style.left = season.percent + '%';
-                wrapper.appendChild(marker);
-                
                 const line = document.createElement('div');
                 line.className = `season-line ${season.class}`;
                 line.style.left = season.percent + '%';
-                line.style.background = getComputedStyle(marker).background;
                 wrapper.appendChild(line);
             });
         }

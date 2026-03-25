@@ -1,5 +1,5 @@
 // ▼▼▼ 每次更新網頁內容時，請修改這裡的版本號 ▼▼▼
-const CACHE_NAME = 'Hibi-v3'; // 建議改成 v3 來觸發這次的更新
+const CACHE_NAME = 'Hibi';
 // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
 const ASSETS = [
