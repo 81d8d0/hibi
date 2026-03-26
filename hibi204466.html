@@ -123,6 +123,14 @@
             font-size: 14px;
             margin-top: 20px;
         }
+        
+        .dashed-line {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            border-left: 2px dashed rgba(180, 180, 180, 0.8); /* 淡淡的灰虛線 */
+            z-index: 5; /* 確保畫在黑色進度條的上方 */
+        }
     </style>
 </head>
 <body>
@@ -217,13 +225,26 @@
             const summerDay = Math.floor((new Date(year, 6, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
             const autumnDay = Math.floor((new Date(year, 9, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
             
+            // 計算虛線日期 (3/1, 5/1, 9/1, 11/1)
+            const date3_1 = Math.floor((new Date(year, 2, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+            const date5_1 = Math.floor((new Date(year, 4, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+            const date9_1 = Math.floor((new Date(year, 8, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+            const date11_1 = Math.floor((new Date(year, 10, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+
             return {
                 dayOfYear, weekOfYear, daysLeft, weeksLeft,
                 percentage: percentage.toFixed(2),
                 totalDays, springDay, summerDay, autumnDay,
                 springPercent: (springDay / totalDays) * 100,
                 summerPercent: (summerDay / totalDays) * 100,
-                autumnPercent: (autumnDay / totalDays) * 100
+                autumnPercent: (autumnDay / totalDays) * 100,
+                // 將四個日期的百分比打包成陣列
+                dashedPercents: [
+                    (date3_1 / totalDays) * 100,
+                    (date5_1 / totalDays) * 100,
+                    (date9_1 / totalDays) * 100,
+                    (date11_1 / totalDays) * 100
+                ]
             };
         }
 
@@ -265,6 +286,22 @@
             });
         }
 
+        function drawDashedLines(data) {
+            const wrapper = document.getElementById('progressWrapper');
+            
+            // 先清除舊的虛線
+            const oldDashedLines = wrapper.querySelectorAll('.dashed-line');
+            oldDashedLines.forEach(line => line.remove());
+            
+            // 畫上新的虛線
+            data.dashedPercents.forEach(percent => {
+                const line = document.createElement('div');
+                line.className = 'dashed-line';
+                line.style.left = percent + '%';
+                wrapper.appendChild(line);
+            });
+        }
+
         function updateInfo() {
             const data = calculateDayPercentage();
             const workdays = calculateWorkdays();
@@ -283,7 +320,7 @@
                 `稼働日は約${workdays}日`;
             
             drawSeasonMarkers(data);
-        }
+            drawDashedLines(data);
 
         // ==========================================
         //  自動更新機制 (解決 iOS PWA 凍結問題)
