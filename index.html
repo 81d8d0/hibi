@@ -86,7 +86,7 @@
             height: 100%;
             background: #000000;
             border-radius: 5px;
-            transition: width 1s ease-in-out;
+            /* 改用 rAF 逐幀更新寬度，移除 CSS transition 避免與動畫互相拖尾 */
             position: relative;
         }
 
@@ -109,6 +109,7 @@
             color: #667eea;
             margin: 20px 0;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            font-variant-numeric: tabular-nums;
         }
     </style>
 </head>
@@ -117,16 +118,16 @@
         <h1>🗓️ 日々</h1>
         
         <div class="info-box">
-            <div class="info-text" id="infoText"></div>
+            <div class="info-text" id="infoText">讀取中...</div>
         </div>
 
         <div class="progress-container">
             <div class="progress-bar-wrapper" id="progressWrapper">
-                <div class="progress-bar" id="progressBar"></div>
+                <div class="progress-bar" id="progressBar" style="width: 0%;"></div>
             </div>
         </div>
 
-        <div class="percentage-display" id="percentageDisplay"></div>
+        <div class="percentage-display" id="percentageDisplay">0.0000000%</div>
     </div>
 
     <script>
@@ -134,48 +135,42 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
                 .then(() => console.log('SW Registered'))
-                .catch(err => console.error('SW Fail', err));
+                .catch(err => console.log('SW Registration skipped or failed.'));
         }
 
-        // 原本的邏輯
-        function calculateDayPercentage() {
-            const now = new Date();
+        // ==========================================
+        //  日期／週數等「整數天」資訊 (低頻更新)
+        // ==========================================
+        function calculateDayInfo(now) {
             const year = now.getFullYear();
-            
+
             const startOfYear = new Date(year, 0, 1);
             const dayOfYear = Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
-            
+
             const endOfYear = new Date(year + 1, 0, 1);
             const totalDays = Math.floor((endOfYear - startOfYear) / (1000 * 60 * 60 * 24));
-            
+
             const { weekNo: weekOfYear, isoYear } = getISOData(now);
-            
-            const percentage = (dayOfYear / totalDays) * 100;
-            
+
             const daysLeft = totalDays - dayOfYear;
 
             const { weekNo: totalWeeksInYear } = getISOData(new Date(year, 11, 28));
 
             let weeksLeft;
             if (isoYear < year) {
-                // 情況：如 2040-01-01，ISO 年份是 2039，代表剛開年
                 weeksLeft = totalWeeksInYear;
             } else if (isoYear > year) {
-                // 情況：年末幾天已經算進明年的第一週
                 weeksLeft = 0;
             } else {
-                // 正常年份內計算
                 weeksLeft = totalWeeksInYear - weekOfYear;
             }
-            
+
             const springDay = Math.floor((new Date(year, 3, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
             const summerDay = Math.floor((new Date(year, 6, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
             const autumnDay = Math.floor((new Date(year, 9, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
-            
+
             return {
-                dayOfYear, weekOfYear, daysLeft, weeksLeft,
-                percentage: percentage.toFixed(2),
-                totalDays, springDay, summerDay, autumnDay,
+                dayOfYear, weekOfYear, daysLeft, weeksLeft, totalDays,
                 springPercent: (springDay / totalDays) * 100,
                 summerPercent: (summerDay / totalDays) * 100,
                 autumnPercent: (autumnDay / totalDays) * 100
@@ -186,14 +181,28 @@
             const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
             const dayNum = d.getUTCDay() || 7;
             d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-            const isoYear = d.getUTCFullYear(); // 取得 ISO 週所屬年份
+            const isoYear = d.getUTCFullYear(); 
             const yearStart = new Date(Date.UTC(isoYear, 0, 1));
             const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
             return { weekNo, isoYear };
         }
 
+        // ==========================================
+        //  高精度百分比 (以毫秒為單位，供動態顯示用)
+        // ==========================================
+        function calculatePrecisePercentage(now) {
+            const year = now.getFullYear();
+            const startOfYear = new Date(year, 0, 1).getTime();
+            const endOfYear = new Date(year + 1, 0, 1).getTime();
+            const elapsedMs = now.getTime() - startOfYear;
+            const totalMs = endOfYear - startOfYear;
+            return (elapsedMs / totalMs) * 100;
+        }
+
         function drawSeasonMarkers(data) {
             const wrapper = document.getElementById('progressWrapper');
+            if (!wrapper) return;
+
             const oldLines = wrapper.querySelectorAll('.season-line');
             oldLines.forEach(line => line.remove());
             
@@ -211,55 +220,83 @@
             });
         }
 
-        function updateInfo() {
-            const data = calculateDayPercentage();
-            
-            document.getElementById('infoText').innerHTML = `
-                今日は今年の<strong>${data.dayOfYear}</strong>日目、第<strong>${data.weekOfYear}</strong>週です。<br>
-                残りは<strong>${data.daysLeft}</strong>日（<strong>${data.weeksLeft}</strong>週）
-            `;
-            
-            const progressBar = document.getElementById('progressBar');
-            progressBar.style.width = data.percentage + '%';
-            
-            document.getElementById('percentageDisplay').textContent = data.percentage + '%';
-            
+        let infoTextEl, progressBarEl, percentageDisplayEl;
+
+        function updateDayInfo() {
+            const now = new Date();
+            const data = calculateDayInfo(now);
+
+            if (infoTextEl) {
+                infoTextEl.innerHTML = `
+                    今日は今年の<strong>${data.dayOfYear}</strong>日目、第<strong>${data.weekOfYear}</strong>週です。<br>
+                    残りは<strong>${data.daysLeft}</strong>日（<strong>${data.weeksLeft}</strong>週）
+                `;
+            }
+
             drawSeasonMarkers(data);
         }
 
         // ==========================================
-        //  自動更新機制 (解決 iOS PWA 凍結問題)
+        //  統一的 requestAnimationFrame 動態更新迴圈
         // ==========================================
+        let lastDayInfoUpdate = 0;
+        const DAY_INFO_UPDATE_INTERVAL = 60 * 1000; // 每 60 秒校正一次靜態天數
 
-        // 1. 當 App 從背景回到前景時，自動執行更新
+        function animationLoop(timestamp) {
+            const now = new Date();
+            const precisePercentage = calculatePrecisePercentage(now);
+
+            // 每一幀都更新進度條與百分比 (防錯機制確保元素存在)
+            if (progressBarEl && percentageDisplayEl) {
+                progressBarEl.style.width = precisePercentage + '%';
+                percentageDisplayEl.textContent = precisePercentage.toFixed(7) + '%';
+            }
+
+            // 利用時間戳記節流，低頻更新天數資訊
+            if (timestamp - lastDayInfoUpdate > DAY_INFO_UPDATE_INTERVAL || lastDayInfoUpdate === 0) {
+                updateDayInfo();
+                lastDayInfoUpdate = timestamp;
+            }
+
+            requestAnimationFrame(animationLoop);
+        }
+
+        // ==========================================
+        //  初始化與 PWA 狀態管理
+        // ==========================================
+        
+        // 使用 DOMContentLoaded，不乾等圖片載入，徹底解決白畫面問題
+        document.addEventListener('DOMContentLoaded', () => {
+            infoTextEl = document.getElementById('infoText');
+            progressBarEl = document.getElementById('progressBar');
+            percentageDisplayEl = document.getElementById('percentageDisplay');
+
+            updateDayInfo();
+            requestAnimationFrame(animationLoop);
+        });
+
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
-                // A. 立即重新計算並更新畫面上的日期與進度條
-                updateInfo(); 
-
-                // B. 在背景默默檢查有沒有新版本的 Service Worker (新程式碼)
-                if ('serviceWorker' in navigator) {
+                // 回到前景時，強制下一幀重新校正天數資訊
+                lastDayInfoUpdate = 0; 
+                
+                if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
                     navigator.serviceWorker.ready.then(registration => {
-                        registration.update(); // 觸發檢查更新
+                        registration.update(); 
                     });
                 }
             }
         });
 
-        // 2. 當發現新版本，且新的 Service Worker 接管時，自動重新載入網頁
         let refreshing = false;
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                 if (!refreshing) {
                     refreshing = true;
-                    window.location.reload(); // 自動重整畫面套用新版本
+                    window.location.reload(); 
                 }
             });
         }
-
-        window.onload = function() {
-            updateInfo();
-        };
     </script>
 </body>
 </html>
