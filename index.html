@@ -249,7 +249,7 @@
             // 每一幀都更新進度條與百分比 (防錯機制確保元素存在)
             if (progressBarEl && percentageDisplayEl) {
                 progressBarEl.style.width = precisePercentage + '%';
-                percentageDisplayEl.textContent = precisePercentage.toFixed(7) + '%';
+                percentageDisplayEl.textContent = precisePercentage.toFixed(6) + '%';
             }
 
             // 利用時間戳記節流，低頻更新天數資訊
