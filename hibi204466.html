@@ -159,12 +159,15 @@
                 .catch(err => console.error('SW Fail', err));
         }
 
-        function calculateDayPercentage() {
-            const now = new Date();
+        function dayIndexOf(date, startOfYear) {
+            return Math.floor((date - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+        }
+
+        function calculateDayPercentage(now) {
             const year = now.getFullYear();
             
             const startOfYear = new Date(year, 0, 1);
-            const dayOfYear = Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+            const dayOfYear = dayIndexOf(now, startOfYear);
             
             const endOfYear = new Date(year + 1, 0, 1);
             const totalDays = Math.floor((endOfYear - startOfYear) / (1000 * 60 * 60 * 24));
@@ -189,8 +192,6 @@
                 daysLeft = totalDays - dayOfYear;
             }
 
-            const { weekNo: totalWeeksInYear } = getISOData(new Date(year, 11, 28));
-
             // ========== 修改：加入 2044 年週數特例 ==========
             let weeksLeft;
             if (year === 2044) {
@@ -207,6 +208,7 @@
                 }
             } else {
                 // 2044 年以前（一般情況）
+                const { weekNo: totalWeeksInYear } = getISOData(new Date(year, 11, 28));
                 if (isoYear < year) {
                     // 情況：如 2040-01-01，ISO 年份是 2039，代表剛開年
                     weeksLeft = totalWeeksInYear;
@@ -220,15 +222,15 @@
             }
             // ===============================================
             
-            const springDay = Math.floor((new Date(year, 3, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
-            const summerDay = Math.floor((new Date(year, 6, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
-            const autumnDay = Math.floor((new Date(year, 9, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+            const springDay = dayIndexOf(new Date(year, 3, 1), startOfYear);
+            const summerDay = dayIndexOf(new Date(year, 6, 1), startOfYear);
+            const autumnDay = dayIndexOf(new Date(year, 9, 1), startOfYear);
             
             // 計算虛線日期 (3/1, 5/1, 9/1, 11/1)
-            const date3_1 = Math.floor((new Date(year, 2, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
-            const date5_1 = Math.floor((new Date(year, 4, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
-            const date9_1 = Math.floor((new Date(year, 8, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
-            const date11_1 = Math.floor((new Date(year, 10, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+            const date3_1 = dayIndexOf(new Date(year, 2, 1), startOfYear);
+            const date5_1 = dayIndexOf(new Date(year, 4, 1), startOfYear);
+            const date9_1 = dayIndexOf(new Date(year, 8, 1), startOfYear);
+            const date11_1 = dayIndexOf(new Date(year, 10, 1), startOfYear);
 
             return {
                 dayOfYear, weekOfYear, daysLeft, weeksLeft,
@@ -257,69 +259,87 @@
             return { weekNo, isoYear };
         }
 
-        function calculateWorkdays() {
-            const today = new Date();
+        function calculateWorkdays(now) {
             const endDate = new Date(2044, 5, 6); // 月份從 0 開始，所以 5 是 6 月
-            const totalDays = Math.floor((endDate - today) / (1000 * 60 * 60 * 24));
+            const totalDays = Math.floor((endDate - now) / (1000 * 60 * 60 * 24));
             const years = totalDays / 365;
             const workdaysPerYear = 250;
             return Math.floor(years * workdaysPerYear);
         }
 
-        function drawSeasonMarkers(data) {
-            const wrapper = document.getElementById('progressWrapper');
-            const oldLines = wrapper.querySelectorAll('.season-line');
-            oldLines.forEach(line => line.remove());
-            
+        let seasonLineEls = null;
+
+        function drawSeasonMarkers(data, wrapper) {
             const seasons = [
                 { percent: data.springPercent, class: 'spring' },
                 { percent: data.summerPercent, class: 'summer' },
                 { percent: data.autumnPercent, class: 'autumn' }
             ];
-            
-            seasons.forEach(season => {
-                const line = document.createElement('div');
-                line.className = `season-line ${season.class}`;
-                line.style.left = season.percent + '%';
-                wrapper.appendChild(line);
-            });
+
+            if (!seasonLineEls) {
+                seasonLineEls = seasons.map(season => {
+                    const line = document.createElement('div');
+                    line.className = `season-line ${season.class}`;
+                    line.style.left = season.percent + '%';
+                    wrapper.appendChild(line);
+                    return line;
+                });
+            } else {
+                seasons.forEach((season, i) => {
+                    seasonLineEls[i].style.left = season.percent + '%';
+                });
+            }
         }
 
-        function drawDashedLines(data) {
-            const wrapper = document.getElementById('progressWrapper');
-            
-            // 先清除舊的虛線
-            const oldDashedLines = wrapper.querySelectorAll('.dashed-line');
-            oldDashedLines.forEach(line => line.remove());
-            
-            // 畫上新的虛線
-            data.dashedPercents.forEach(percent => {
-                const line = document.createElement('div');
-                line.className = 'dashed-line';
-                line.style.left = percent + '%';
-                wrapper.appendChild(line);
-            });
+        let dashedLineEls = null;
+
+        function drawDashedLines(data, wrapper) {
+            if (!dashedLineEls) {
+                dashedLineEls = data.dashedPercents.map(percent => {
+                    const line = document.createElement('div');
+                    line.className = 'dashed-line';
+                    line.style.left = percent + '%';
+                    wrapper.appendChild(line);
+                    return line;
+                });
+            } else {
+                data.dashedPercents.forEach((percent, i) => {
+                    dashedLineEls[i].style.left = percent + '%';
+                });
+            }
+        }
+
+        let infoTextEl, progressBarEl, percentageDisplayEl, workdayInfoEl, wrapperEl;
+
+        function cacheElements() {
+            infoTextEl = document.getElementById('infoText');
+            progressBarEl = document.getElementById('progressBar');
+            percentageDisplayEl = document.getElementById('percentageDisplay');
+            workdayInfoEl = document.getElementById('workdayInfo');
+            wrapperEl = document.getElementById('progressWrapper');
         }
 
         function updateInfo() {
-            const data = calculateDayPercentage();
-            const workdays = calculateWorkdays();
-            
-            document.getElementById('infoText').innerHTML = `
+            const now = new Date();
+            const data = calculateDayPercentage(now);
+            const workdays = calculateWorkdays(now);
+
+            if (!infoTextEl) cacheElements();
+
+            infoTextEl.innerHTML = `
                 今日は今年の<strong>${data.dayOfYear}</strong>日目、第<strong>${data.weekOfYear}</strong>週です。<br>
                 残りは<strong>${data.daysLeft}</strong>日（<strong>${data.weeksLeft}</strong>週）
             `;
             
-            const progressBar = document.getElementById('progressBar');
-            progressBar.style.width = data.percentage + '%';
+            progressBarEl.style.width = data.percentage + '%';
             
-            document.getElementById('percentageDisplay').textContent = data.percentage + '%';
+            percentageDisplayEl.textContent = data.percentage + '%';
             
-            document.getElementById('workdayInfo').textContent = 
+            workdayInfoEl.textContent = 
                 `稼働日は約${workdays}日`;
             
-            drawSeasonMarkers(data);
-            drawDashedLines(data);
+            drawSeasonMarkers(data, wrapperEl);
+            drawDashedLines(data, wrapperEl);
         }
 
         // ==========================================

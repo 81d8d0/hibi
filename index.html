@@ -88,6 +88,7 @@
             border-radius: 5px;
             /* 改用 rAF 逐幀更新寬度，移除 CSS transition 避免與動畫互相拖尾 */
             position: relative;
+            will-change: width;
         }
 
         .season-line {
@@ -141,6 +142,16 @@
         // ==========================================
         //  日期／週數等「整數天」資訊 (低頻更新)
         // ==========================================
+        let totalWeeksCache = { year: null, weeks: null };
+
+        function getTotalWeeksInYear(year) {
+            if (totalWeeksCache.year !== year) {
+                totalWeeksCache.year = year;
+                totalWeeksCache.weeks = getISOData(new Date(year, 11, 28)).weekNo;
+            }
+            return totalWeeksCache.weeks;
+        }
+
         function calculateDayInfo(now) {
             const year = now.getFullYear();
 
@@ -154,7 +165,7 @@
 
             const daysLeft = totalDays - dayOfYear;
 
-            const { weekNo: totalWeeksInYear } = getISOData(new Date(year, 11, 28));
+            const totalWeeksInYear = getTotalWeeksInYear(year);
 
             let weeksLeft;
             if (isoYear < year) {
@@ -199,25 +210,31 @@
             return (elapsedMs / totalMs) * 100;
         }
 
+        let seasonLineEls = null;
+
         function drawSeasonMarkers(data) {
             const wrapper = document.getElementById('progressWrapper');
             if (!wrapper) return;
 
-            const oldLines = wrapper.querySelectorAll('.season-line');
-            oldLines.forEach(line => line.remove());
-            
             const seasons = [
                 { percent: data.springPercent, class: 'spring' },
                 { percent: data.summerPercent, class: 'summer' },
                 { percent: data.autumnPercent, class: 'autumn' }
             ];
-            
-            seasons.forEach(season => {
-                const line = document.createElement('div');
-                line.className = `season-line ${season.class}`;
-                line.style.left = season.percent + '%';
-                wrapper.appendChild(line);
-            });
+
+            if (!seasonLineEls) {
+                seasonLineEls = seasons.map(season => {
+                    const line = document.createElement('div');
+                    line.className = `season-line ${season.class}`;
+                    line.style.left = season.percent + '%';
+                    wrapper.appendChild(line);
+                    return line;
+                });
+            } else {
+                seasons.forEach((season, i) => {
+                    seasonLineEls[i].style.left = season.percent + '%';
+                });
+            }
         }
 
         let infoTextEl, progressBarEl, percentageDisplayEl;
@@ -241,15 +258,21 @@
         // ==========================================
         let lastDayInfoUpdate = 0;
         const DAY_INFO_UPDATE_INTERVAL = 60 * 1000; // 每 60 秒校正一次靜態天數
+        let lastPercentStr = '';
 
         function animationLoop(timestamp) {
             const now = new Date();
             const precisePercentage = calculatePrecisePercentage(now);
+            const percentStr = precisePercentage.toFixed(6);
 
-            // 每一幀都更新進度條與百分比 (防錯機制確保元素存在)
-            if (progressBarEl && percentageDisplayEl) {
-                progressBarEl.style.width = precisePercentage + '%';
-                percentageDisplayEl.textContent = precisePercentage.toFixed(6) + '%';
+            // 僅在顯示字串實際變化時才寫入 DOM (數值解析度遠高於視覺可辨變化頻率，
+            // 多數畫面幀的字串其實相同，跳過可省去不必要的樣式計算與重繪)
+            if (percentStr !== lastPercentStr) {
+                if (progressBarEl && percentageDisplayEl) {
+                    progressBarEl.style.width = percentStr + '%';
+                    percentageDisplayEl.textContent = percentStr + '%';
+                }
+                lastPercentStr = percentStr;
             }
 
             // 利用時間戳記節流，低頻更新天數資訊

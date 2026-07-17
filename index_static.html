@@ -137,12 +137,15 @@
         }
 
         // 原本的邏輯
-        function calculateDayPercentage() {
-            const now = new Date();
+        function dayIndexOf(date, startOfYear) {
+            return Math.floor((date - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+        }
+
+        function calculateDayPercentage(now) {
             const year = now.getFullYear();
             
             const startOfYear = new Date(year, 0, 1);
-            const dayOfYear = Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+            const dayOfYear = dayIndexOf(now, startOfYear);
             
             const endOfYear = new Date(year + 1, 0, 1);
             const totalDays = Math.floor((endOfYear - startOfYear) / (1000 * 60 * 60 * 24));
@@ -167,9 +170,9 @@
                 weeksLeft = totalWeeksInYear - weekOfYear;
             }
             
-            const springDay = Math.floor((new Date(year, 3, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
-            const summerDay = Math.floor((new Date(year, 6, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
-            const autumnDay = Math.floor((new Date(year, 9, 1) - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+            const springDay = dayIndexOf(new Date(year, 3, 1), startOfYear);
+            const summerDay = dayIndexOf(new Date(year, 6, 1), startOfYear);
+            const autumnDay = dayIndexOf(new Date(year, 9, 1), startOfYear);
             
             return {
                 dayOfYear, weekOfYear, daysLeft, weeksLeft,
@@ -191,39 +194,55 @@
             return { weekNo, isoYear };
         }
 
-        function drawSeasonMarkers(data) {
-            const wrapper = document.getElementById('progressWrapper');
-            const oldLines = wrapper.querySelectorAll('.season-line');
-            oldLines.forEach(line => line.remove());
-            
+        let seasonLineEls = null;
+
+        function drawSeasonMarkers(data, wrapper) {
             const seasons = [
                 { percent: data.springPercent, class: 'spring' },
                 { percent: data.summerPercent, class: 'summer' },
                 { percent: data.autumnPercent, class: 'autumn' }
             ];
-            
-            seasons.forEach(season => {
-                const line = document.createElement('div');
-                line.className = `season-line ${season.class}`;
-                line.style.left = season.percent + '%';
-                wrapper.appendChild(line);
-            });
+
+            if (!seasonLineEls) {
+                seasonLineEls = seasons.map(season => {
+                    const line = document.createElement('div');
+                    line.className = `season-line ${season.class}`;
+                    line.style.left = season.percent + '%';
+                    wrapper.appendChild(line);
+                    return line;
+                });
+            } else {
+                seasons.forEach((season, i) => {
+                    seasonLineEls[i].style.left = season.percent + '%';
+                });
+            }
+        }
+
+        let infoTextEl, progressBarEl, percentageDisplayEl, wrapperEl;
+
+        function cacheElements() {
+            infoTextEl = document.getElementById('infoText');
+            progressBarEl = document.getElementById('progressBar');
+            percentageDisplayEl = document.getElementById('percentageDisplay');
+            wrapperEl = document.getElementById('progressWrapper');
         }
 
         function updateInfo() {
-            const data = calculateDayPercentage();
+            const now = new Date();
+            const data = calculateDayPercentage(now);
+
+            if (!infoTextEl) cacheElements();
             
-            document.getElementById('infoText').innerHTML = `
+            infoTextEl.innerHTML = `
                 今日は今年の<strong>${data.dayOfYear}</strong>日目、第<strong>${data.weekOfYear}</strong>週です。<br>
                 残りは<strong>${data.daysLeft}</strong>日（<strong>${data.weeksLeft}</strong>週）
             `;
             
-            const progressBar = document.getElementById('progressBar');
-            progressBar.style.width = data.percentage + '%';
+            progressBarEl.style.width = data.percentage + '%';
             
-            document.getElementById('percentageDisplay').textContent = data.percentage + '%';
+            percentageDisplayEl.textContent = data.percentage + '%';
             
-            drawSeasonMarkers(data);
+            drawSeasonMarkers(data, wrapperEl);
         }
 
         // ==========================================
