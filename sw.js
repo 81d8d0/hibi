@@ -1,5 +1,6 @@
 // ▼▼▼ 每次更新網頁內容時，請修改這裡的版本號 ▼▼▼
-const CACHE_NAME = 'Hibi';
+const CACHE_VERSION = 'v2.34'
+const CACHE_NAME = `Hibi-${CACHE_VERSION}`;
 // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
 const ASSETS = [
