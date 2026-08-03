@@ -267,6 +267,25 @@
             return Math.floor(years * workdaysPerYear);
         }
 
+        // 2044/6/5~6/11 為倒數 0 週，5/29~6/4 為倒數 1 週，5/22~5/28 為倒數 2 週...
+        // 2044/6 為倒數 0 月，2044/5 為倒數 1 月，2044/4 為倒數 2 月...
+        function calculateWeeksMonthsLeft2044(now) {
+            const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            // 週：以 2044/6/11（第 0 週的週末）為錨點，往回每 7 天為一個級距
+            const weekAnchorEnd = new Date(2044, 5, 11);
+            const msPerDay = 1000 * 60 * 60 * 24;
+            const diffDays = Math.floor((weekAnchorEnd - todayDateOnly) / msPerDay);
+            const weeksLeft2044 = Math.max(0, Math.floor(diffDays / 7));
+
+            // 月：以 2044/6 為第 0 月，往回每個日曆月遞增
+            const targetMonthIndex = 2044 * 12 + 5; // 2044/6
+            const currentMonthIndex = now.getFullYear() * 12 + now.getMonth();
+            const monthsLeft2044 = Math.max(0, targetMonthIndex - currentMonthIndex);
+
+            return { weeksLeft2044, monthsLeft2044 };
+        }
+
         let seasonLineEls = null;
 
         function drawSeasonMarkers(data, wrapper) {
@@ -323,6 +342,7 @@
             const now = new Date();
             const data = calculateDayPercentage(now);
             const workdays = calculateWorkdays(now);
+            const { weeksLeft2044, monthsLeft2044 } = calculateWeeksMonthsLeft2044(now);
 
             if (!infoTextEl) cacheElements();
 
@@ -335,8 +355,9 @@
             
             percentageDisplayEl.textContent = data.percentage + '%';
             
-            workdayInfoEl.textContent = 
-                `稼働日は約${workdays}日`;
+            workdayInfoEl.innerHTML = 
+                `あと${weeksLeft2044}週、${monthsLeft2044}月 稼働日は約${workdays}日
+`;
             
             drawSeasonMarkers(data, wrapperEl);
             drawDashedLines(data, wrapperEl);
