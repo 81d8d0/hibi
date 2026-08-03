@@ -98,6 +98,7 @@
             width: 3px;
             height: 100%;
             opacity: 0.7;
+            z-index: 10; /* 季節線優先，蓋過虛線和白線 */
         }
 
         .spring { background: #66BB6A; }
@@ -129,6 +130,14 @@
             height: 100%;
             border-left: 2px dashed rgba(180, 180, 180, 0.8); /* 淡淡的灰虛線 */
             z-index: 5; /* 確保畫在黑色進度條的上方 */
+        }
+
+        .half-month-line {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            border-left: 2px solid rgba(255, 255, 255, 0.85); /* 每 1.5 月的白線，粗細同虛線 */
+            z-index: 4; /* 低於季節線，季節線優先顯示 */
         }
     </style>
 </head>
@@ -232,6 +241,16 @@
             const date9_1 = dayIndexOf(new Date(year, 8, 1), startOfYear);
             const date11_1 = dayIndexOf(new Date(year, 10, 1), startOfYear);
 
+            // 計算每 1.5 個月的白線日期 (2/15, 4/1, 5/15, 7/1, 8/15, 10/1, 11/15)
+            // 其中 4/1、7/1、10/1 與季節線重疊，由季節線優先顯示
+            const date2_15 = dayIndexOf(new Date(year, 1, 15), startOfYear);
+            const date4_1 = dayIndexOf(new Date(year, 3, 1), startOfYear);
+            const date5_15 = dayIndexOf(new Date(year, 4, 15), startOfYear);
+            const date7_1 = dayIndexOf(new Date(year, 6, 1), startOfYear);
+            const date8_15 = dayIndexOf(new Date(year, 7, 15), startOfYear);
+            const date10_1 = dayIndexOf(new Date(year, 9, 1), startOfYear);
+            const date11_15 = dayIndexOf(new Date(year, 10, 15), startOfYear);
+
             return {
                 dayOfYear, weekOfYear, daysLeft, weeksLeft,
                 percentage: percentage.toFixed(2),
@@ -245,6 +264,16 @@
                     (date5_1 / totalDays) * 100,
                     (date9_1 / totalDays) * 100,
                     (date11_1 / totalDays) * 100
+                ],
+                // 每 1.5 個月的白線百分比
+                halfMonthPercents: [
+                    (date2_15 / totalDays) * 100,
+                    (date4_1 / totalDays) * 100,
+                    (date5_15 / totalDays) * 100,
+                    (date7_1 / totalDays) * 100,
+                    (date8_15 / totalDays) * 100,
+                    (date10_1 / totalDays) * 100,
+                    (date11_15 / totalDays) * 100
                 ]
             };
         }
@@ -328,6 +357,24 @@
             }
         }
 
+        let halfMonthLineEls = null;
+
+        function drawHalfMonthLines(data, wrapper) {
+            if (!halfMonthLineEls) {
+                halfMonthLineEls = data.halfMonthPercents.map(percent => {
+                    const line = document.createElement('div');
+                    line.className = 'half-month-line';
+                    line.style.left = percent + '%';
+                    wrapper.appendChild(line);
+                    return line;
+                });
+            } else {
+                data.halfMonthPercents.forEach((percent, i) => {
+                    halfMonthLineEls[i].style.left = percent + '%';
+                });
+            }
+        }
+
         let infoTextEl, progressBarEl, percentageDisplayEl, workdayInfoEl, wrapperEl;
 
         function cacheElements() {
@@ -356,11 +403,12 @@
             percentageDisplayEl.textContent = data.percentage + '%';
             
             workdayInfoEl.innerHTML = 
-                `あと${weeksLeft2044}週、${monthsLeft2044}月 稼働日は約${workdays}日
+                `あと${weeksLeft2044}週、${monthsLeft2044}月 / 稼働日は約${workdays}日
 `;
             
             drawSeasonMarkers(data, wrapperEl);
             drawDashedLines(data, wrapperEl);
+            drawHalfMonthLines(data, wrapperEl);
         }
 
         // ==========================================
